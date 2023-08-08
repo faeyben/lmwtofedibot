@@ -19,7 +19,8 @@ config = configparser.ConfigParser()
 config.read(conf_path)
 
 
-def post_to_lemmy(title, link, published, description):
+def post_to_lemmy(title: str, link: str, published, description: str, warning_type: str):
+    post_title = "[" + warning_type + "] " + title
     lemmy = Lemmy(config["Lemmy"]["instance"])
     if not lemmy.log_in(config["Lemmy"]["username"], config["Lemmy"]["password"]):
         print("[ERROR] Unable to login")
@@ -27,7 +28,7 @@ def post_to_lemmy(title, link, published, description):
     community_id = lemmy.discover_community("lebensmittelwarnung")
     post = lemmy.post(
         community_id,
-        title,
+        post_title,
         body=description,
         url=link)
 
@@ -114,16 +115,22 @@ def main():
     response = requests.post(api_url, json=post_json, headers=post_headers)
     response.raise_for_status()
 
+    warning_type_dictionary = {
+        ".ProductWarning": "Product",
+        ".FoodWarning": "Food"
+    }
+
     for warning in response.json()["response"]["docs"]:
         link = warning["link"]
         title = warning["title"]
         published = str(warning["publishedDate"])[0:-3]
         description = get_description(warning)
+        warning_type = warning_type_dictionary.get(warning["_type"], "Unknown")
 
         if is_post_in_db(link):
             continue
         add_post_to_db(title, link, published)
-        post_to_lemmy(title, link, published, description)
+        post_to_lemmy(title, link, published, description, warning_type)
         sleep(5)
 
 
