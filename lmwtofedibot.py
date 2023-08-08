@@ -18,6 +18,8 @@ elif os.path.exists("/etc/lmwtofedibot/lmwtofedibot.conf"):
 config = configparser.ConfigParser()
 config.read(conf_path)
 
+if "community" not in config["Lemmy"]:
+    config["Lemmy"]["community"] = "lebensmittelwarnung"
 
 def post_to_lemmy(title: str, link: str, description: str, warning_type: str):
     post_title = "[" + warning_type + "] " + title
@@ -25,7 +27,7 @@ def post_to_lemmy(title: str, link: str, description: str, warning_type: str):
     if not lemmy.log_in(config["Lemmy"]["username"], config["Lemmy"]["password"]):
         print("[ERROR] Unable to login")
         sys.exit(1)
-    community_id = lemmy.discover_community("lebensmittelwarnung")
+    community_id = lemmy.discover_community(config["Lemmy"]["community"])
     post = lemmy.post(
         community_id,
         post_title,
