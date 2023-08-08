@@ -19,7 +19,7 @@ config = configparser.ConfigParser()
 config.read(conf_path)
 
 
-def post_to_lemmy(title: str, link: str, published, description: str, warning_type: str):
+def post_to_lemmy(title: str, link: str, description: str, warning_type: str):
     post_title = "[" + warning_type + "] " + title
     lemmy = Lemmy(config["Lemmy"]["instance"])
     if not lemmy.log_in(config["Lemmy"]["username"], config["Lemmy"]["password"]):
@@ -130,7 +130,7 @@ def main():
         if is_post_in_db(link):
             continue
         add_post_to_db(title, link, published)
-        post_to_lemmy(title, link, published, description, warning_type)
+        post_to_lemmy(title, link, description, warning_type)
         sleep(5)
 
 
