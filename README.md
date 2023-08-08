@@ -10,7 +10,7 @@ Baue zuerst das Docker Image
 docker build -t faeyben/lmwtofedibot .
 ```
 
-Passe dann die `lmwtofedibot.conf` entsprechend an.
+Kopiere dann die `lmwtofedibot.conf_example` nach `lmwtofedibot.conf` und passe sie entsprechend an.
 
 Danach starte den Docker Container
 
