@@ -1,2 +1,4 @@
 pythorhead
 requests
+feedparser
+beautifulsoup4

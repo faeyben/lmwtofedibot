@@ -1,10 +1,12 @@
 import sys
-from time import sleep
+from time import mktime, sleep
 import os
 import sqlite3
 from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
 import requests
 from pythorhead import Lemmy
+import feedparser
 
 import configparser
 
@@ -21,7 +23,25 @@ config.read(conf_path)
 if "community" not in config["Lemmy"]:
     config["Lemmy"]["community"] = "lebensmittelwarnung"
 
-def post_to_lemmy(title: str, link: str, description: str, warning_type: str):
+WARNING_TYPE_DICTIONARY = {
+    ".ProductWarning": "Non-Food",
+    ".FoodWarning": "Food",
+    "Lebensmittel": "Food",
+    "kosmetische Mittel": "Non-Food",
+    "Bedarfsgegenstände": "Non-Food",
+    "Mittel zum Tätowieren": "Non-Food"
+}
+
+class Warning():
+    def __init__(self, title, link, description, published, warning_type):
+        self.title = title
+        self.link = link
+        self.description = description
+        self.published = published
+        self.warning_type = warning_type
+
+
+def post_to_lemmy(title: str, link: str, description: str, warning_type: str) -> bool:
     post_title = "[" + warning_type + "] " + title
     lemmy = Lemmy(config["Lemmy"]["instance"])
     if not lemmy.log_in(config["Lemmy"]["username"], config["Lemmy"]["password"]):
@@ -34,8 +54,7 @@ def post_to_lemmy(title: str, link: str, description: str, warning_type: str):
         body=description,
         url=link)
 
-    if post:
-        print("[INFO] Uploaded post " + title + ".")
+    return post
 
 
 def add_post_to_db(title, link, published):
@@ -73,22 +92,16 @@ def init_db():
         published text);""")
     conn.close()
 
+def get_warnings_per_api() -> list[Warning]:
+    def _get_description(warning):
+        if "warning" in warning:
+            return warning["warning"]
+        if "rapexInformation" in warning:
+            return warning["rapexInformation"]["message"]
 
-def get_description(warning):
-    if "warning" in warning:
-        return warning["warning"]
-    if "rapexInformation" in warning:
-        return warning["rapexInformation"]["message"]
-
-    return ""
-
-
-def main():
-    if not os.path.exists(db_path):
-        init_db()
+        return ""
 
     seven_days_ago = int((datetime.now() - timedelta(days=7)).timestamp())
-
     api_url = "https://megov.bayern.de/verbraucherschutz/baystmuv-verbraucherinfo/rest/api/warnings/merged"
     post_json = {
         "food": {
@@ -102,12 +115,13 @@ def main():
         "products": {
             "rows": 5,
             "sort": "publishedDate desc, title asc",
-            "start": 00,
+            "start": 0,
             "fq": [
                 "publishedDate > " + str(seven_days_ago),
             ]
         }
         }
+
     post_headers = {
         "accept": "application/json",
         "Authorization": "baystmuv-vi-1.0 os=ios, key=9d9e8972-ff15-4943-8fea-117b5a973c61",
@@ -116,23 +130,71 @@ def main():
 
     response = requests.post(api_url, json=post_json, headers=post_headers)
     response.raise_for_status()
+    warnings = []
 
-    warning_type_dictionary = {
-        ".ProductWarning": "Product",
-        ".FoodWarning": "Food"
-    }
+    for item in response.json()["response"]["docs"]:
+        warnings.append(Warning(item["title"], item["link"], _get_description(item), str(item["publishedDate"])[0:-3], WARNING_TYPE_DICTIONARY.get(item["_type"], "Unknown")))
 
-    for warning in response.json()["response"]["docs"]:
-        link = warning["link"]
-        title = warning["title"]
-        published = str(warning["publishedDate"])[0:-3]
-        description = get_description(warning)
-        warning_type = warning_type_dictionary.get(warning["_type"], "Unknown")
+    return warnings
 
-        if is_post_in_db(link):
+
+def get_warnings_per_rss() -> list[Warning]:
+    def _get_description(text: str) -> str:
+        description = ""
+        add_lines_to_description = False
+        for line in text.splitlines():
+            if line == "Betroffene Länder:":
+                return description
+
+            if add_lines_to_description:
+                description += line
+
+            if line == "Grund der Warnung:":
+                add_lines_to_description = True
+
+
+    def _get_warning_type(text: str) -> str:
+        marker_found = False
+        for line in text.splitlines():
+            if marker_found:
+                return WARNING_TYPE_DICTIONARY.get(line, "Unknown")
+            if line == "Typ:":
+                marker_found = True
+
+
+    feed_url = "https://www.lebensmittelwarnung.de/bvl-lmw-de/opensaga/feed/alle/alle_bundeslaender.rss"
+    feed = feedparser.parse(feed_url)
+
+    warnings = []
+    counter = 0
+    for item in feed.entries:
+        counter += 1
+        summary_text = BeautifulSoup(item["summary"], 'html.parser').getText()
+        warnings.append(Warning(item["title"], item["link"], _get_description(summary_text), str(int(mktime(item["published_parsed"]))), _get_warning_type(summary_text) ))
+        if counter >= 10:
+            break
+
+    return warnings
+
+def main():
+    if not os.path.exists(db_path):
+        init_db()
+
+    try:
+        print("[INFO] Getting current warnings from API...")
+        warnings = get_warnings_per_api()
+    except requests.exceptions.HTTPError:
+        print("[WARNING] API is broken. Trying RSS feed...")
+        warnings = get_warnings_per_rss()
+
+    for warning in warnings:
+        if is_post_in_db(warning.link):
             continue
-        add_post_to_db(title, link, published)
-        post_to_lemmy(title, link, description, warning_type)
+        add_post_to_db(warning.title, warning.link, warning.published)
+        if post_to_lemmy(warning.title, warning.link, warning.description, warning.warning_type):
+            print("[INFO] Uploaded post " + warning.title + ".")
+        else:
+            print("[ERROR] Could not post " + warning.title + ".")
         sleep(5)
 
 
