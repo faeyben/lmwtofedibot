@@ -23,7 +23,7 @@ config.read(conf_path)
 if "community" not in config["Lemmy"]:
     config["Lemmy"]["community"] = "lebensmittelwarnung"
 
-warning_type_dictionary = {
+WARNING_TYPE_DICTIONARY = {
     ".ProductWarning": "Non-Food",
     ".FoodWarning": "Food",
     "Lebensmittel": "Food",
@@ -54,10 +54,7 @@ def post_to_lemmy(title: str, link: str, description: str, warning_type: str) ->
         body=description,
         url=link)
 
-    if post:
-        return True
-    else:
-        return False
+    return post
 
 
 def add_post_to_db(title, link, published):
@@ -136,7 +133,7 @@ def get_warnings_per_api() -> list[Warning]:
     warnings = []
 
     for item in response.json()["response"]["docs"]:
-        warnings.append(Warning(item["title"], item["link"], _get_description(item), str(item["publishedDate"])[0:-3], warning_type_dictionary.get(item["_type"], "Unknown")))
+        warnings.append(Warning(item["title"], item["link"], _get_description(item), str(item["publishedDate"])[0:-3], WARNING_TYPE_DICTIONARY.get(item["_type"], "Unknown")))
 
     return warnings
 
@@ -160,7 +157,7 @@ def get_warnings_per_rss() -> list[Warning]:
         marker_found = False
         for line in text.splitlines():
             if marker_found:
-                return warning_type_dictionary.get(line, "Unknown")
+                return WARNING_TYPE_DICTIONARY.get(line, "Unknown")
             if line == "Typ:":
                 marker_found = True
 
