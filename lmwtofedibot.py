@@ -191,6 +191,7 @@ def main():
         try:
             warnings = get_warnings_per_rss()
         except:
+            warnings = []
             print("[ERROR] Neither API nor RSS feed are currently functional.")
 
     for warning in warnings:
