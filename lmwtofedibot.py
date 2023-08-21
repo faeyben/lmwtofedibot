@@ -165,6 +165,9 @@ def get_warnings_per_rss() -> list[Warning]:
     feed_url = "https://www.lebensmittelwarnung.de/bvl-lmw-de/opensaga/feed/alle/alle_bundeslaender.rss"
     feed = feedparser.parse(feed_url)
 
+    if feed.status >= 400:
+        raise Exception("RSS feed returned non-success code: " + str(feed.status))
+
     warnings = []
     counter = 0
     for item in feed.entries:
@@ -185,7 +188,10 @@ def main():
         warnings = get_warnings_per_api()
     except requests.exceptions.HTTPError:
         print("[WARNING] API is broken. Trying RSS feed...")
-        warnings = get_warnings_per_rss()
+        try:
+            warnings = get_warnings_per_rss()
+        except:
+            print("[ERROR] Neither API nor RSS feed are currently functional.")
 
     for warning in warnings:
         if is_post_in_db(warning.link):
