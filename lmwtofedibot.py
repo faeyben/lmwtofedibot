@@ -10,6 +10,8 @@ import feedparser
 
 import configparser
 
+from contextlib import suppress
+
 db_path = "/var/lib/lmwtofedibot/lmwtofedibot.sql"
 
 if os.path.exists("./lmwtofedibot.conf"):
@@ -92,6 +94,7 @@ def init_db():
         published text);""")
     conn.close()
 
+
 def get_warnings_per_api() -> list[Warning]:
     def _get_description(warning):
         if "warning" in warning:
@@ -100,6 +103,13 @@ def get_warnings_per_api() -> list[Warning]:
             return warning["rapexInformation"]["message"]
 
         return ""
+    
+    def _get_warning_type(warning) -> str:
+        with suppress(KeyError):
+            if item["safetyInformation"]["ordinance"] == "Lebensmittel- und Futtermittelgesetzbuch (LFGB)":
+                return "Food"
+
+        return WARNING_TYPE_DICTIONARY.get(item["_type"], "Unknown")
 
     seven_days_ago = int((datetime.now() - timedelta(days=7)).timestamp())
     api_url = "https://megov.bayern.de/verbraucherschutz/baystmuv-verbraucherinfo/rest/api/warnings/merged"
@@ -133,7 +143,7 @@ def get_warnings_per_api() -> list[Warning]:
     warnings = []
 
     for item in response.json()["response"]["docs"]:
-        warnings.append(Warning(item["title"], item["link"], _get_description(item), str(item["publishedDate"])[0:-3], WARNING_TYPE_DICTIONARY.get(item["_type"], "Unknown")))
+        warnings.append(Warning(item["title"], item["link"], _get_description(item), str(item["publishedDate"])[0:-3], _get_warning_type(item)))
 
     return warnings
 
