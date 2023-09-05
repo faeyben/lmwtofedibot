@@ -25,14 +25,7 @@ config.read(conf_path)
 if "community" not in config["Lemmy"]:
     config["Lemmy"]["community"] = "lebensmittelwarnung"
 
-WARNING_TYPE_DICTIONARY = {
-    ".ProductWarning": "Non-Food",
-    ".FoodWarning": "Food",
-    "Lebensmittel": "Food",
-    "kosmetische Mittel": "Non-Food",
-    "Bedarfsgegenstände": "Non-Food",
-    "Mittel zum Tätowieren": "Non-Food"
-}
+
 
 class Warning():
     def __init__(self, title, link, description, published, warning_type):
@@ -106,10 +99,12 @@ def get_warnings_per_api() -> list[Warning]:
     
     def _get_warning_type(warning) -> str:
         with suppress(KeyError):
-            if item["safetyInformation"]["ordinance"] == "Lebensmittel- und Futtermittelgesetzbuch (LFGB)":
+            if warning["safetyInformation"]["ordinance"] == "Lebensmittel- und Futtermittelgesetzbuch (LFGB)":
+                return "Food"
+            if warning["_type"] == ".FoodWarning" and "/lebensmittel/" in warning["link"]:
                 return "Food"
 
-        return WARNING_TYPE_DICTIONARY.get(item["_type"], "Unknown")
+        return "Non-Food"
 
     seven_days_ago = int((datetime.now() - timedelta(days=7)).timestamp())
     api_url = "https://megov.bayern.de/verbraucherschutz/baystmuv-verbraucherinfo/rest/api/warnings/merged"
@@ -164,10 +159,16 @@ def get_warnings_per_rss() -> list[Warning]:
 
 
     def _get_warning_type(text: str) -> str:
+        warning_type_dictionary = {
+            "Lebensmittel": "Food",
+            "kosmetische Mittel": "Non-Food",
+            "Bedarfsgegenstände": "Non-Food",
+            "Mittel zum Tätowieren": "Non-Food"
+}
         marker_found = False
         for line in text.splitlines():
             if marker_found:
-                return WARNING_TYPE_DICTIONARY.get(line, "Unknown")
+                return warning_type_dictionary.get(line, "Unknown")
             if line == "Typ:":
                 marker_found = True
 
