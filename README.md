@@ -15,5 +15,4 @@ Kopiere dann die `lmwtofedibot.conf_example` nach `lmwtofedibot.conf` und passe 
 Danach starte den Docker Container
 
 ```
-docker run -d -v $(pwd)/lmwtofedibot.conf:/etc/lmwtofedibot/lmwtofedibot.conf:ro faeyben/lmwtofedibot
-```
+docker run -d -v $(pwd)/lmwtofedibot.conf:/etc/lmwtofedibot/lmwtofedibot.conf:ro -v lmw_conf:/etc/lmwtofedibot/lmwtofedibot.conf faeyben/lmwtofedibot
