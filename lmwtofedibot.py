@@ -101,6 +101,7 @@ def get_warnings_per_api() -> list[Warning]:
         with suppress(KeyError):
             if warning["safetyInformation"]["ordinance"] == "Lebensmittel- und Futtermittelgesetzbuch (LFGB)":
                 return "Food"
+        with suppress(KeyError):
             if warning["_type"] == ".FoodWarning" and "/lebensmittel/" in warning["link"]:
                 return "Food"
 
