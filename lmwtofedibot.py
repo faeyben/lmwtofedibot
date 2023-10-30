@@ -198,7 +198,7 @@ def main():
     try:
         print("[INFO] Getting current warnings from API...")
         warnings = get_warnings_per_api()
-    except requests.exceptions.HTTPError:
+    except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
         print("[WARNING] API is broken. Trying RSS feed...")
         try:
             warnings = get_warnings_per_rss()
