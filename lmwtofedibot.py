@@ -209,9 +209,9 @@ def main():
     for warning in warnings:
         if is_post_in_db(warning.link):
             continue
-        add_post_to_db(warning.title, warning.link, warning.published)
         if post_to_lemmy(warning.title, warning.link, warning.description, warning.warning_type):
             print("[INFO] Uploaded post " + warning.title + ".")
+            add_post_to_db(warning.title, warning.link, warning.published)
         else:
             print("[ERROR] Could not post " + warning.title + ".")
         sleep(5)
