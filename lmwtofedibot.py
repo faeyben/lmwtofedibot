@@ -41,7 +41,7 @@ def post_to_lemmy(title: str, link: str, description: str, warning_type: str) ->
     lemmy = Lemmy(config["Lemmy"]["instance"])
     if not lemmy.log_in(config["Lemmy"]["username"], config["Lemmy"]["password"]):
         print("[ERROR] Unable to login")
-        sys.exit(1)
+        return False
     community_id = lemmy.discover_community(config["Lemmy"]["community"])
     post = lemmy.post(
         community_id,
